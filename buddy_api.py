@@ -16,7 +16,7 @@ reviews_collection = db['reviews']
 
 
 def create_all_data(reviews_df, buddy_df):
-    all_data = pd.merge(reviews_df, buddy_df, on="buddy_id")
+    all_data = pd.merge(reviews_df, buddy_df, on="user_id")
     return all_data
 
 
@@ -47,13 +47,15 @@ def get_friends_and_fof(user_id, buddy_df):
 def get_restraunt_rec(restaurant_df, user_id, buddy_df):
     all_data = create_all_data(restaurant_df, buddy_df)
     relevant_friends = get_friends_and_fof(user_id, buddy_df)
+    print(relevant_friends)
     friend_restraunt_df = all_data[all_data['user_id'].isin(relevant_friends)]
-    restraunt_tried = all_data[all_data['user_id'] == user_id]['restaurant_name']
-    rec_df = friend_restraunt_df[~friend_restraunt_df['restaurant_name'].isin(restraunt_tried)]
+    restraunt_tried = all_data[all_data['user_id'] == user_id]['rest_id']
+    rec_df = friend_restraunt_df[~friend_restraunt_df['rest_id'].isin(restraunt_tried)]
+    print(rec_df)
     rec = {}
-    for restraunt in rec_df['restaurant_name']:
+    for restraunt in rec_df['rest_id']:
         if restraunt not in rec:
-            ratings = rec_df[rec_df['restaurant_name'] == restraunt]['rating']
+            ratings = rec_df[rec_df['rest_id'] == restraunt]['rating']
             rating = ratings.mean().round()
             if rating > 3:
                 rec[restraunt] = rating
@@ -64,8 +66,8 @@ def reccomend_dish(restaurant, user_id, buddy_df, restaurant_df):
     all_data = create_all_data(restaurant_df, buddy_df)
     relevant_friends = get_friends_and_fof(user_id, buddy_df)
     friends_df = all_data[all_data['user_id'].isin(relevant_friends)]
-    restaurant_data = friends_df[friends_df['restaurant_name'] == restaurant]
-    dish_tried = all_data[(all_data['user_id'] == user_id) & (all_data['restaurant_name'] == restaurant)]['dish_tried']
+    restaurant_data = friends_df[friends_df['rest_id'] == restaurant]
+    dish_tried = all_data[(all_data['user_id'] == user_id) & (all_data['rest_id'] == restaurant)]['dish_tried']
     dishes_to_rec = restaurant_data[~restaurant_data['dish_tried'].isin(dish_tried)]
     return dishes_to_rec
 
@@ -73,6 +75,7 @@ def reccomend_dish(restaurant, user_id, buddy_df, restaurant_df):
 @app.route('/get_recommendations', methods=['GET'])
 def get_recommendations():
     user_id = request.args.get('user_id')
+    rest_id = request.args.get('rest_id')
     documents = restaurant_collection.find()
     documents_list = list(documents)
     rest_df = pd.DataFrame(documents_list)
@@ -95,9 +98,10 @@ def get_recommendations():
     print(buddy_df)
     print(reviews_df)
 
-    rest_rec = json.dumps(get_restraunt_rec(rest_df, int(user_id), buddy_df))
+    rest_rec = reccomend_dish(int(rest_id), int(user_id), buddy_df, reviews_df)
+    rest_rec= rest_rec.drop(columns=['rest_id', 'user_id','buddies'])
 
-    return rest_rec
+    return rest_rec.to_json(orient='records')
 
 @app.route('/get_reviews', methods=['GET'])
 def get_reviews():
@@ -124,6 +128,7 @@ def get_reviews():
         return jsonify({'error': 'User not found or no buddies listed'}), 404
 
     buddies_list = document['buddies']
+    buddies_list.append(int(user_id))
     print("Buddies List:", buddies_list)
 
     # Convert buddy_id values to strings
@@ -204,6 +209,8 @@ def get_restaurants():
         "location.display_address": "address"
     })
     restaurant_json = restaurant_df.to_json(orient="records")
+
+    restaurant_collection.delete_many({})
 
     # Insert the restaurant data into the MongoDB collection
     restaurant_collection.insert_many(restaurant_df.to_dict('records'))
