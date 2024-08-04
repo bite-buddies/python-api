@@ -210,8 +210,6 @@ def get_restaurants():
     })
     restaurant_json = restaurant_df.to_json(orient="records")
 
-    restaurant_collection.delete_many({})
-
     # Insert the restaurant data into the MongoDB collection
     restaurant_collection.insert_many(restaurant_df.to_dict('records'))
 
