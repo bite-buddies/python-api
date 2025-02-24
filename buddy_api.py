@@ -217,7 +217,7 @@ def get_restaurants():
 
 
 def search_restaurants(long, lat,
-                       api_key='urMqqB2UYH3ldFRClbTEeSmpBzLSmeHPDD_GFkbiwWAZTod8fDbM0WIxzqitOucIF5hGrVFUrNcEbofwWQFbwgWDrS2-yTiNAopwXnDljoaNfNo10DlUAfHBpVuuZnYx',
+                       api_key='YELP API KEY',
                        radius=15):
     radius_meters = radius * 1609.34
 
